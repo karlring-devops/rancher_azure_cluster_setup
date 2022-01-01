@@ -393,60 +393,72 @@ function az_list_deployment(){
 #\******************************************************************/#
 #| MAIN
 #\******************************************************************/#
+# . ./rancher_azure_cluster_setup.sh load clsrke2 4 6 add_nodes
 
 ACTION="${1}"                  #---- load
 AZ_CLUSTER_GROUP_NAME="${2}"   #---- clsrke2
+AZ_SERVER_RANGE_START=${3}
+AZ_SERVER_RANGE_FINISH=${4}
+AZ_ACTION_TYPE=${5}
+
 azenv load
 SCRIPT="`pwd`/azure_setup_load_balancer.sh"
 
-cat <<EOF
-[INFO]  installation instructions:
-[INFO]  1. check env vars are correct
-[INFO]  2. run function:   run_create
-EOF
+# cat <<EOF
+# [INFO]  installation instructions:
+# [INFO]  1. check env vars are correct
+# [INFO]  2. run function:   run_create
+# EOF
 
 function run_create(){
+# cat <<EOF
     azenv run_create
-    az_create_resource_group
-
-    # az_create_network-ip-public ${AZ_PUBLIC_IP}
-    for i in `seq 1 3`; do
+    if [ ${AZ_ACTION_TYPE} == "upstream" ] ; then 
+        az_create_resource_group
+    fi
+    
+    for i in `seq ${AZ_SERVER_RANGE_START} ${AZ_SERVER_RANGE_FINISH}`; do
       az_create_network-ip-public "${AZ_PUBLIC_IP_VM_NAME}-${i}"  #-- ${AZ_PUBLIC_IP_VM_1}
     done 
+# EOF
+    if [ ${AZ_ACTION_TYPE} == "upstream" ] ; then 
+# cat <<EOF
+        az_create_lb
+        az_create_lb-probe
+        az_create_lb-rule
+        az_create_network-vnet
+        az_create_network-group-service ${AZ_NET_SVC_GROUP}
+# EOF
+    fi
 
-    az_create_lb
-    az_create_lb-probe
-    az_create_lb-rule
-    az_create_network-vnet
-
-    az_create_network-group-service ${AZ_NET_SVC_GROUP}
-
-    for i in `seq 1 3`; do
+# cat <<EOF
+    for i in `seq ${AZ_SERVER_RANGE_START} ${AZ_SERVER_RANGE_FINISH}`; do
       az_create_network-group-service vm-${AZ_RESOURCE_GROUP_NAME}-${i}-nsg
     done
 
-    for i in `seq 1 3`; do
+    for i in `seq ${AZ_SERVER_RANGE_START} ${AZ_SERVER_RANGE_FINISH}`; do
       az_create_sshkeys sshkey-${AZ_RESOURCE_GROUP_NAME}-vm-${i}
     done
 
-    for i in `seq 1 3`; do
+    for i in `seq ${AZ_SERVER_RANGE_START} ${AZ_SERVER_RANGE_FINISH}`; do
       az_create_network_group_service_rules_rke vm-${AZ_RESOURCE_GROUP_NAME}-${i}-nsg
     done
-
+# EOF
             #--- nics attached to vm via the vm create command... auto creates nic. ---
             # for i in `seq 4 8`; do
             #   az_create_network-nic ${AZ_VM_NET_PRIMARY}-nic-$i
             # done
+    if [ ${AZ_ACTION_TYPE} == "upstream" ] ; then 
+# cat <<EOF
+        az_create_vm-availability-set
+# EOF
+    fi
 
-    az_create_vm-availability-set
-
-            #-- az_create_vm-file-cloud-init
-
-    for i in `seq 1 3`; do 
+# cat <<EOF
+    for i in `seq ${AZ_SERVER_RANGE_START} ${AZ_SERVER_RANGE_FINISH}`; do
       az_create_vm-machines "vm-${AZ_RESOURCE_GROUP_NAME}-${i}-nsg" "sshkey-${AZ_RESOURCE_GROUP_NAME}-vm-${i}"
     done
-
-        #-- az_list_cluster_group
+# EOF
 }
 
 function run_remove(){
